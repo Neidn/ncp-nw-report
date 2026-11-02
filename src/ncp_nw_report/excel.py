@@ -240,11 +240,11 @@ def _guide(wb: Workbook, doc: Document, collected_at: str) -> None:
         (f"보안등급: {doc.classification}", False),
         ("", False),
         ("■ 시트 구성", True),
+        (f"{S_SERVER_ORG}: 서버별 사용 기관 (수동 입력, 서버 목록은 자동 갱신)", False),
         (f"{S_MAP}: 서버별 적용 ACG (자동 수집)", False),
         (f"{S_ACG}: ACG별 Inbound/Outbound 규칙 (자동 수집)", False),
         (f"{S_NACL}: Subnet 단위 Network ACL 규칙 (자동 수집)", False),
         (f"{S_SUBNET}: VPC/Subnet 대역, 게이트웨이, NACL (자동 수집)", False),
-        (f"{S_SERVER_ORG}: 서버별 사용 기관 (수동 입력, 서버 목록은 자동 갱신)", False),
         (f"{S_IPSEC}: 연결 대상별 Peer IP와 연동 대역 (수동 입력)", False),
         (f"{S_HISTORY}: 수시 현행화 내역 (수동 입력)", False),
         ("", False),
@@ -375,6 +375,9 @@ def write(
         ws.auto_filter.ref = (
             f"A{HEADER_ROW}:{get_column_letter(len(spec['headers']))}{last}"
         )
+
+    # 서버-기관 시트를 작성기준 바로 다음(두 번째)으로 이동
+    wb.move_sheet(S_SERVER_ORG, offset=1 - wb.sheetnames.index(S_SERVER_ORG))
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -11,11 +11,11 @@ def test_write_creates_all_sheets(tmp_path, demo_raw):
     wb = load_workbook(out)
     assert wb.sheetnames == [
         "작성기준",
+        excel.S_SERVER_ORG,
         excel.S_MAP,
         excel.S_ACG,
         excel.S_NACL,
         excel.S_SUBNET,
-        excel.S_SERVER_ORG,
         excel.S_IPSEC,
         excel.S_HISTORY,
     ]
