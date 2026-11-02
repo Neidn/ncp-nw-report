@@ -1,7 +1,7 @@
 """별첨 엑셀 작성.
 
 자동 수집 시트(서버-ACG 매핑, ACG 규칙, NACL 규칙, Subnet 목록)는 매번 새로 쓰고,
-수동 입력 시트(IPsec VPN, 변경이력)는 이전 파일이 주어지면
+수동 입력 시트(서버-기관, IPsec VPN, 변경이력)는 이전 파일이 주어지면
 그 내용을 그대로 옮겨 온다.
 """
 
@@ -42,6 +42,7 @@ S_MAP = "서버-ACG 매핑"
 S_ACG = "ACG 규칙"
 S_NACL = "NACL 규칙"
 S_SUBNET = "Subnet 목록"
+S_SERVER_ORG = "서버-기관"
 S_IPSEC = "IPsec VPN"
 S_HISTORY = "변경이력"
 
@@ -52,15 +53,16 @@ SHEETS: dict[str, dict[str, Any]] = {
             "VPC",
             "Subnet",
             "서버명",
+            "사용 기관",
             "사설 IP",
             "적용 ACG",
             "ACG 설명",
         ],
-        "widths": [22, 30, 26, 15, 28, 30],
+        "widths": [22, 30, 26, 20, 15, 28, 30],
     },
     S_ACG: {
         "note": "1행 = 규칙 1개. '적용 서버 수'는 서버-ACG 매핑 시트에서 자동 집계 "
-        "(0이면 미사용 ACG)",
+        "(0이면 미사용 ACG). '적용 기관'은 작성 시점의 서버-기관 시트 기준",
         "headers": [
             "ACG명",
             "VPC",
@@ -71,8 +73,9 @@ SHEETS: dict[str, dict[str, Any]] = {
             "출발지 구분",
             "용도",
             "적용 서버 수",
+            "적용 기관",
         ],
-        "widths": [28, 22, 11, 10, 13, 24, 11, 30, 12],
+        "widths": [28, 22, 11, 10, 13, 24, 11, 30, 12, 22],
     },
     S_NACL: {
         "note": "Subnet 단위 규칙. 우선순위 숫자가 작을수록 먼저 적용",
@@ -104,6 +107,14 @@ SHEETS: dict[str, dict[str, Any]] = {
         ],
         "widths": [22, 15, 30, 16, 14, 10, 10, 26],
     },
+    S_SERVER_ORG: {
+        "note": "[수동 입력] 사용 기관·비고만 입력. 여러 기관이 쓰면 쉼표로 구분, "
+        "전체 기관이 쓰면 '전체'. 상태: 신규=이번에 추가된 서버, 미조회=NCP에서 "
+        "조회되지 않음(삭제 여부 확인 후 행 정리)",
+        "headers": ["서버명", "VPC", "사용 기관", "비고", "상태"],
+        "widths": [30, 22, 30, 30, 10],
+        "manual_cols": 4,
+    },
     S_IPSEC: {
         "note": "[수동 입력] 1행 = 상대 측 대역 1개. 값이 여러 개인 칸(Peer IP, "
         "NCP 내부 대역)은 셀 안에서 줄바꿈으로 구분. "
@@ -133,7 +144,7 @@ SHEETS: dict[str, dict[str, Any]] = {
     },
 }
 
-MANUAL_SHEETS = [S_IPSEC, S_HISTORY]
+MANUAL_SHEETS = [S_SERVER_ORG, S_IPSEC, S_HISTORY]
 
 
 def _cell(ws: Worksheet, row: int, col: int, value: Any) -> None:
@@ -233,6 +244,7 @@ def _guide(wb: Workbook, doc: Document, collected_at: str) -> None:
         (f"{S_ACG}: ACG별 Inbound/Outbound 규칙 (자동 수집)", False),
         (f"{S_NACL}: Subnet 단위 Network ACL 규칙 (자동 수집)", False),
         (f"{S_SUBNET}: VPC/Subnet 대역, 게이트웨이, NACL (자동 수집)", False),
+        (f"{S_SERVER_ORG}: 서버별 사용 기관 (수동 입력, 서버 목록은 자동 갱신)", False),
         (f"{S_IPSEC}: 연결 대상별 Peer IP와 연동 대역 (수동 입력)", False),
         (f"{S_HISTORY}: 수시 현행화 내역 (수동 입력)", False),
         ("", False),
@@ -250,6 +262,51 @@ def _guide(wb: Workbook, doc: Document, collected_at: str) -> None:
     ws.column_dimensions["A"].width = 100
 
 
+def merge_server_orgs(
+    servers: list[list[Any]], previous: list[list[Any]]
+) -> list[list[Any]]:
+    """현재 서버 목록과 이전 서버-기관 시트를 합친다.
+
+    반환 행: [서버명, VPC, 사용 기관, 비고, 상태]
+    - 이전에 있던 서버: 사용 기관·비고 유지
+    - 새 서버: 사용 기관 빈칸, 상태 '신규'
+    - 이전에만 있는 서버: 그대로 두고 상태 '미조회'
+    """
+    prev = {str(r[0]): r for r in previous if r and r[0]}
+    out: list[list[Any]] = []
+    seen: set[str] = set()
+    for name, vpc in servers:
+        seen.add(name)
+        old = prev.get(name)
+        if old:
+            out.append([name, vpc, old[2], old[3], ""])
+        else:
+            out.append([name, vpc, None, None, "신규" if prev else ""])
+    for name, old in prev.items():
+        if name not in seen:
+            out.append([name, old[1], old[2], old[3], "미조회"])
+    return out
+
+
+def _split_orgs(value: Any) -> list[str]:
+    return [v.strip() for v in str(value or "").split(",") if v.strip()]
+
+
+def acg_orgs(mapping: list[list[Any]], server_orgs: list[list[Any]]) -> dict:
+    """(VPC, ACG명) -> 적용 기관 문자열. 서버 중 하나라도 '전체'면 '전체'."""
+    org_of = {r[0]: _split_orgs(r[2]) for r in server_orgs}
+    acc: dict[tuple[str, str], list[str]] = {}
+    for vpc, _subnet, server, _org, _ip, acg, _desc in mapping:
+        names = acc.setdefault((vpc, acg), [])
+        for org in org_of.get(server, []):
+            if org not in names:
+                names.append(org)
+    return {
+        key: "전체" if "전체" in names else ", ".join(sorted(names))
+        for key, names in acc.items()
+    }
+
+
 def write(
     report: Report,
     out: str | Path,
@@ -258,14 +315,25 @@ def write(
 ) -> Path:
     doc = doc or Document()
     manual = read_manual(previous)
+    manual[S_SERVER_ORG] = merge_server_orgs(report.servers, manual[S_SERVER_ORG])
     wb = Workbook()
     _guide(wb, doc, report.collected_at)
 
+    # 서버-ACG 매핑: 사용 기관(D열)은 서버-기관 시트에서 조회하는 수식
     ws = _sheet(wb, S_MAP)
     map_last = max(_rows(ws, report.mapping), FIRST)
+    org_end = FIRST + max(len(manual[S_SERVER_ORG]) + 20, MANUAL_ROWS) - 1
+    so = f"'{S_SERVER_ORG}'!"
+    for r in range(FIRST, FIRST + len(report.mapping)):
+        look = (
+            f"INDEX({so}$C${FIRST}:$C${org_end},"
+            f"MATCH(C{r},{so}$A${FIRST}:$A${org_end},0))"
+        )
+        _cell(ws, r, 4, f'=IFERROR(IF({look}="","",{look}),"")')
 
     ws = _sheet(wb, S_ACG)
     last = _rows(ws, report.acg_rules)
+    orgs = acg_orgs(report.mapping, manual[S_SERVER_ORG])
     m = f"'{S_MAP}'!"
     for r in range(FIRST, last + 1):
         _cell(
@@ -273,9 +341,11 @@ def write(
             r,
             9,
             f"=COUNTIFS({m}$A${FIRST}:$A${map_last},B{r},"
-            f"{m}$E${FIRST}:$E${map_last},A{r})",
+            f"{m}$F${FIRST}:$F${map_last},A{r})",
         )
         ws.cell(r, 9).alignment = Alignment(horizontal="center", vertical="center")
+        key = (ws.cell(r, 2).value, ws.cell(r, 1).value)
+        _cell(ws, r, 10, orgs.get(key, ""))
 
     _rows(_sheet(wb, S_NACL), report.nacl_rules)
     _rows(_sheet(wb, S_SUBNET), report.subnets)
@@ -283,23 +353,27 @@ def write(
     # 수동 입력 시트
     for name in MANUAL_SHEETS:
         ws = _sheet(wb, name)
-        ncols = SHEETS[name]["manual_cols"]
+        spec = SHEETS[name]
+        ncols = len(spec["headers"]) if name == S_SERVER_ORG else spec["manual_cols"]
         rows = manual[name]
         fills = {
             col: PatternFill("solid", fgColor=cell_color)
-            for start, end, _, _, cell_color in SHEETS[name].get("groups", [])
+            for start, end, _, _, cell_color in spec.get("groups", [])
             for col in range(start, end + 1)
         }
+        # 서버-기관 시트는 서버명·VPC·상태가 자동 값이므로 입력칸(C, D)만 색칠
+        manual_cols = {3, 4} if name == S_SERVER_ORG else set(range(1, ncols + 1))
         total = max(len(rows) + 20, MANUAL_ROWS)
         for r in range(FIRST, FIRST + total):
             values = rows[r - FIRST] if r - FIRST < len(rows) else [None] * ncols
             for c in range(1, ncols + 1):
                 _cell(ws, r, c, values[c - 1] if c - 1 < len(values) else None)
-                ws.cell(r, c).fill = fills.get(c, MANUAL_FILL)
+                if c in manual_cols:
+                    ws.cell(r, c).fill = fills.get(c, MANUAL_FILL)
         last = FIRST + total - 1
         _fit_rows(ws, FIRST, FIRST + len(rows) - 1)
         ws.auto_filter.ref = (
-            f"A{HEADER_ROW}:{get_column_letter(len(SHEETS[name]['headers']))}{last}"
+            f"A{HEADER_ROW}:{get_column_letter(len(spec['headers']))}{last}"
         )
 
     out = Path(out)

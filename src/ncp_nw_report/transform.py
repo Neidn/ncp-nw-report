@@ -17,6 +17,7 @@ class Report:
     acg_rules: list[list[Any]] = field(default_factory=list)
     nacl_rules: list[list[Any]] = field(default_factory=list)
     subnets: list[list[Any]] = field(default_factory=list)
+    servers: list[list[Any]] = field(default_factory=list)  # [서버명, VPC]
 
 
 def _code(obj: Any) -> str:
@@ -69,6 +70,7 @@ def build(raw: dict[str, Any]) -> Report:
         sno = str(srv["serverInstanceNo"])
         sname = srv.get("serverName", sno)
         vname = vpc_name.get(srv.get("vpcNo", ""), srv.get("vpcNo", ""))
+        report.servers.append([sname, vname])
         per_acg: dict[str, dict[str, list[str]]] = {}
         for nic in nics_by_instance.get(sno, []):
             sub_name = subnet.get(nic.get("subnetNo", ""), {}).get(
@@ -86,6 +88,7 @@ def build(raw: dict[str, Any]) -> Report:
                     vname,
                     "\n".join(entry["subnets"]),
                     sname,
+                    None,  # 사용 기관 (서버-기관 시트에서 조회)
                     "\n".join(entry["ips"]),
                     a.get("accessControlGroupName", acg_no),
                     a.get("accessControlGroupDescription", ""),
@@ -167,7 +170,8 @@ def build(raw: dict[str, Any]) -> Report:
             ]
         )
 
-    report.mapping.sort(key=lambda r: (r[0], r[2], r[4]))
+    report.mapping.sort(key=lambda r: (r[0], r[2], r[5]))
+    report.servers.sort(key=lambda r: (r[1], r[0]))
     report.acg_rules.sort(key=lambda r: (r[1], r[0], r[2]))
     report.subnets.sort(key=lambda r: (r[0], r[2]))
     return report

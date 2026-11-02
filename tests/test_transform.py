@@ -6,10 +6,11 @@ from ncp_nw_report import transform
 def test_mapping_is_one_row_per_server_and_acg(demo_raw):
     report = transform.build(demo_raw)
     db01 = [r for r in report.mapping if r[2] == "example-db-01"]
-    assert sorted(r[4] for r in db01) == ["example-db-acg", "example-prd-mgmt-acg"]
+    assert sorted(r[5] for r in db01) == ["example-db-acg", "example-prd-mgmt-acg"]
     assert db01[0][0] == "example-prd-vpc"
     assert db01[0][1] == "example-prd-db-sub"
-    assert db01[0][3] == "10.1.30.9"
+    assert db01[0][4] == "10.1.30.9"
+    assert ["example-db-01", "example-prd-vpc"] in report.servers
 
 
 def test_acg_rule_fields(demo_raw):
