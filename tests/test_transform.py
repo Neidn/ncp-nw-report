@@ -40,3 +40,52 @@ def test_subnet_gateway(demo_raw):
     assert sub["example-prd-db-sub"][4] == "10.1.30.1"
     assert sub["example-prd-db-sub"][7] == "example-db-nacl"
     assert transform.gateway_of("bad") == ""
+
+
+def test_subnet_labels_in_korean(demo_raw):
+    report = transform.build(demo_raw)
+    sub = {r[2]: r for r in report.subnets}
+    assert sub["example-prd-db-sub"][5] == "사설"
+    assert sub["example-prd-db-sub"][6] == "일반"
+    assert sub["example-sec-lb-sub"][5] == "공인"
+    assert sub["example-sec-lb-sub"][6] == "LB용"
+    assert transform._label(transform.SUBNET_USAGE, "NATGW") == "NAT용"
+    assert transform._label(transform.SUBNET_USAGE, "NEW") == "NEW"
+
+
+def test_load_balancer_rows(demo_raw):
+    report = transform.build(demo_raw)
+    lbs = {r[0]: r for r in report.load_balancers}
+    web = lbs["example-web-alb"]
+    assert web[1] == "ALB (Application)"
+    assert web[2] == "공인"
+    assert web[4] == "example-sec-lb-sub"
+    assert web[8] == "HTTPS:443"
+    assert web[9] == "example-access-01\nexample-bastion-01"
+    assert lbs["example-k8s-nlb"][1] == "NLB (Network)"
+
+
+def test_load_balancer_flat_codes_and_no_target_group():
+    raw = {
+        "vpcs": [],
+        "subnets": [],
+        "servers": [],
+        "nics": [],
+        "acgs": [],
+        "acg_rules": [],
+        "nacls": [],
+        "nacl_rules": [],
+        "load_balancers": [
+            {
+                "loadBalancerInstanceNo": "1",
+                "loadBalancerName": "lb",
+                "loadBalancerTypeCode": "NETWORK_PROXY",
+                "loadBalancerNetworkTypeCode": "PRIVATE",
+            }
+        ],
+        "target_groups": [],
+    }
+    row = transform.build(raw).load_balancers[0]
+    assert row[1] == "NPLB (Network Proxy)"
+    assert row[2] == "사설"
+    assert row[7:] == ["", "", ""]

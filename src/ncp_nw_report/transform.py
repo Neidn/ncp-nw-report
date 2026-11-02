@@ -7,6 +7,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 DIRECTION = {"INBND": "Inbound", "OTBND": "Outbound"}
+SUBNET_TYPE = {"PUBLIC": "공인", "PRIVATE": "사설"}
+SUBNET_USAGE = {"GEN": "일반", "LOADB": "LB용", "NATGW": "NAT용", "BM": "베어메탈용"}
+LB_TYPE = {
+    "APPLICATION": "ALB (Application)",
+    "NETWORK": "NLB (Network)",
+    "NETWORK_PROXY": "NPLB (Network Proxy)",
+}
+LB_NETWORK = {"PUBLIC": "공인", "PRIVATE": "사설"}
 ACTION = {"ALLOW": "허용", "DROP": "차단"}
 
 
@@ -18,12 +26,33 @@ class Report:
     nacl_rules: list[list[Any]] = field(default_factory=list)
     subnets: list[list[Any]] = field(default_factory=list)
     servers: list[list[Any]] = field(default_factory=list)  # [서버명, VPC]
+    load_balancers: list[list[Any]] = field(default_factory=list)
 
 
 def _code(obj: Any) -> str:
     if isinstance(obj, dict):
         return str(obj.get("code", ""))
     return str(obj or "")
+
+
+def _label(table: dict[str, str], code: str) -> str:
+    """코드값을 한글 표기로. 모르는 코드는 그대로 둔다."""
+    return table.get(code, code)
+
+
+def _pick(obj: dict[str, Any], *keys: str) -> Any:
+    """응답 필드명이 버전·문서마다 달라질 수 있어 후보 키 중 첫 값을 쓴다."""
+    for k in keys:
+        v = obj.get(k)
+        if v not in (None, "", []):
+            return v
+    return None
+
+
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
 
 
 def gateway_of(cidr: str) -> str:
@@ -164,11 +193,66 @@ def build(raw: dict[str, Any]) -> Report:
                 s.get("subnetName", ""),
                 cidr,
                 gateway_of(cidr),
-                _code(s.get("subnetType")),
-                _code(s.get("usageType")),
+                _label(SUBNET_TYPE, _code(s.get("subnetType"))),
+                _label(SUBNET_USAGE, _code(s.get("usageType"))),
                 nacl.get(s.get("networkAclNo", ""), {}).get("networkAclName", ""),
             ]
         )
+
+    # LB 목록: 1행 = LB × 대상 그룹
+    server_name = {
+        str(s["serverInstanceNo"]): s.get("serverName", "") for s in raw["servers"]
+    }
+    tgs_by_lb: dict[str, list[dict[str, Any]]] = {}
+    for tg in raw.get("target_groups", []):
+        lb_nos = _as_list(
+            _pick(tg, "loadBalancerInstanceNoList", "loadBalancerInstanceNo")
+        )
+        for lb_no in lb_nos:
+            tgs_by_lb.setdefault(str(lb_no), []).append(tg)
+    for lb in raw.get("load_balancers", []):
+        lb_no = str(lb["loadBalancerInstanceNo"])
+        sub_nos = _as_list(_pick(lb, "subnetNoList")) or [
+            s.get("subnetNo") for s in _as_list(_pick(lb, "loadBalancerSubnetList"))
+        ]
+        base = [
+            lb.get("loadBalancerName", lb_no),
+            _label(
+                LB_TYPE,
+                _code(_pick(lb, "loadBalancerType", "loadBalancerTypeCode")),
+            ),
+            _label(
+                LB_NETWORK,
+                _code(
+                    _pick(lb, "loadBalancerNetworkType", "loadBalancerNetworkTypeCode")
+                ),
+            ),
+            vpc_name.get(lb.get("vpcNo", ""), lb.get("vpcNo", "")),
+            "\n".join(
+                subnet.get(str(n), {}).get("subnetName", str(n)) for n in sub_nos if n
+            ),
+            "\n".join(str(ip) for ip in _as_list(_pick(lb, "loadBalancerIpList"))),
+            lb.get("loadBalancerDomain", ""),
+        ]
+        groups = tgs_by_lb.get(lb_no) or [{}]
+        for tg in groups:
+            proto = _code(
+                _pick(tg, "targetGroupProtocolType", "targetGroupProtocolTypeCode")
+            )
+            port = tg.get("targetGroupPort", "")
+            targets = [
+                server_name.get(str(t), str(t))
+                for t in _as_list(_pick(tg, "targetNoList"))
+            ]
+            report.load_balancers.append(
+                base
+                + [
+                    tg.get("targetGroupName", ""),
+                    f"{proto}:{port}" if proto or port else "",
+                    "\n".join(targets),
+                ]
+            )
+    report.load_balancers.sort(key=lambda r: (r[3], r[0], r[7]))
 
     report.mapping.sort(key=lambda r: (r[0], r[2], r[5]))
     report.servers.sort(key=lambda r: (r[1], r[0]))

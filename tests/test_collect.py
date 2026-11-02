@@ -70,10 +70,30 @@ class FakeVpc:
         raise RuntimeError("permission denied")
 
 
+class FakeLb:
+    def get_load_balancer_instance_list(self, **_: Any) -> dict[str, Any]:
+        return {
+            "totalRows": 1,
+            "loadBalancerInstanceList": [{"loadBalancerInstanceNo": "lb1"}],
+        }
+
+    def get_target_group_list(self, **_: Any) -> dict[str, Any]:
+        return {"totalRows": 1, "targetGroupList": [{"targetGroupNo": "tg1"}]}
+
+
+class DeniedLb:
+    def get_load_balancer_instance_list(self, **_: Any) -> dict[str, Any]:
+        raise RuntimeError("permission denied")
+
+    def get_target_group_list(self, **_: Any) -> dict[str, Any]:
+        raise RuntimeError("permission denied")
+
+
 class FakeClient:
     def __init__(self) -> None:
         self.server = FakeServer()
         self.vpc = FakeVpc()
+        self.load_balancer: Any = FakeLb()
 
 
 def test_collect_paginates_and_dedupes():
@@ -94,3 +114,17 @@ def test_nacl_uses_library_methods():
     assert client.vpc.calls == [("acl", "KR"), ("rule", "n1")]
     # Deny-Allow Group 조회 실패는 무시
     assert raw["deny_allow_groups"] == []
+
+
+def test_collect_load_balancers():
+    raw = Collector(FakeClient()).collect()
+    assert raw["load_balancers"][0]["loadBalancerInstanceNo"] == "lb1"
+    assert raw["target_groups"][0]["targetGroupNo"] == "tg1"
+
+
+def test_load_balancer_permission_error_is_skipped(capsys):
+    client = FakeClient()
+    client.load_balancer = DeniedLb()
+    raw = Collector(client).collect()
+    assert raw["load_balancers"] == []
+    assert "Load Balancer 조회 실패" in capsys.readouterr().err

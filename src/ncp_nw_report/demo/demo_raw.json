@@ -480,5 +480,72 @@
    "networkAclDenyAllowGroupNo": "g1",
    "networkAclDenyAllowGroupName": "blocked-ip-group"
   }
+ ],
+ "load_balancers": [
+  {
+   "loadBalancerInstanceNo": "lb1",
+   "loadBalancerName": "example-web-alb",
+   "loadBalancerType": {
+    "code": "APPLICATION"
+   },
+   "loadBalancerNetworkType": {
+    "code": "PUBLIC"
+   },
+   "vpcNo": "v3",
+   "subnetNoList": [
+    "s6"
+   ],
+   "loadBalancerIpList": [
+    "10.200.2.6"
+   ],
+   "loadBalancerDomain": "slb-0000.ncloudslb.com"
+  },
+  {
+   "loadBalancerInstanceNo": "lb2",
+   "loadBalancerName": "example-k8s-nlb",
+   "loadBalancerType": {
+    "code": "NETWORK"
+   },
+   "loadBalancerNetworkType": {
+    "code": "PRIVATE"
+   },
+   "vpcNo": "v2",
+   "subnetNoList": [
+    "s4"
+   ],
+   "loadBalancerIpList": [
+    "10.3.6.6"
+   ],
+   "loadBalancerDomain": ""
+  }
+ ],
+ "target_groups": [
+  {
+   "targetGroupNo": "tg1",
+   "targetGroupName": "example-web-tg",
+   "targetGroupProtocolType": {
+    "code": "HTTPS"
+   },
+   "targetGroupPort": 443,
+   "vpcNo": "v3",
+   "loadBalancerInstanceNo": "lb1",
+   "targetNoList": [
+    "300",
+    "301"
+   ]
+  },
+  {
+   "targetGroupNo": "tg2",
+   "targetGroupName": "example-k8s-ingress-tg",
+   "targetGroupProtocolType": {
+    "code": "TCP"
+   },
+   "targetGroupPort": 30443,
+   "vpcNo": "v2",
+   "loadBalancerInstanceNo": "lb2",
+   "targetNoList": [
+    "200"
+   ]
+  }
  ]
 }

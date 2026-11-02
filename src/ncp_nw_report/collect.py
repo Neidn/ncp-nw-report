@@ -6,6 +6,7 @@ ncp-api-python(NcpClient, v0.12.0 이상)을 사용한다.
 from __future__ import annotations
 
 import inspect
+import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
@@ -124,6 +125,26 @@ class Collector:
         except Exception:
             dag = []
 
+        # Load Balancer / Target Group. 권한이 없으면 경고 후 빈 목록.
+        lbs: list[dict[str, Any]] = []
+        tgs: list[dict[str, Any]] = []
+        lb_api = getattr(self.client, "load_balancer", None)
+        if lb_api is not None:
+            try:
+                lbs = self._list(
+                    lb_api.get_load_balancer_instance_list,
+                    "loadBalancerInstanceList",
+                    "loadBalancerInstanceNo",
+                )
+                tgs = self._list(
+                    lb_api.get_target_group_list, "targetGroupList", "targetGroupNo"
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(
+                    f"[경고] Load Balancer 조회 실패, LB 목록 생략: {exc}",
+                    file=sys.stderr,
+                )
+
         return {
             "vpcs": vpcs,
             "subnets": subnets,
@@ -134,6 +155,8 @@ class Collector:
             "nacls": nacls,
             "nacl_rules": nacl_rules,
             "deny_allow_groups": dag,
+            "load_balancers": lbs,
+            "target_groups": tgs,
         }
 
 

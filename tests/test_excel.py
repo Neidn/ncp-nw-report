@@ -16,6 +16,7 @@ def test_write_creates_all_sheets(tmp_path, demo_raw):
         excel.S_ACG,
         excel.S_NACL,
         excel.S_SUBNET,
+        excel.S_LB,
         excel.S_IPSEC,
         excel.S_HISTORY,
     ]

@@ -51,7 +51,8 @@ def _write(raw: dict[str, Any], args: argparse.Namespace) -> None:
         f"작성 완료: {path}\n"
         f"  서버-ACG 매핑 {len(report.mapping)}행 / "
         f"ACG 규칙 {len(report.acg_rules)}행 / "
-        f"NACL 규칙 {len(report.nacl_rules)}행 / Subnet {len(report.subnets)}행"
+        f"NACL 규칙 {len(report.nacl_rules)}행 / Subnet {len(report.subnets)}행 / "
+        f"LB {len(report.load_balancers)}행"
     )
 
 

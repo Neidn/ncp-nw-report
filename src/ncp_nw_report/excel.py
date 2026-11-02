@@ -42,6 +42,7 @@ S_MAP = "서버-ACG 매핑"
 S_ACG = "ACG 규칙"
 S_NACL = "NACL 규칙"
 S_SUBNET = "Subnet 목록"
+S_LB = "LB 목록"
 S_SERVER_ORG = "서버-기관"
 S_IPSEC = "IPsec VPN"
 S_HISTORY = "변경이력"
@@ -106,6 +107,23 @@ SHEETS: dict[str, dict[str, Any]] = {
             "NACL",
         ],
         "widths": [22, 15, 30, 16, 14, 10, 10, 26],
+    },
+    S_LB: {
+        "note": "1행 = LB × 대상 그룹. LB 접근통제는 LB Subnet의 NACL과 대상 서버의 "
+        "ACG로 적용됨 (NACL 규칙·ACG 규칙 시트 참조)",
+        "headers": [
+            "LB명",
+            "유형",
+            "네트워크",
+            "VPC",
+            "Subnet",
+            "LB IP",
+            "도메인",
+            "대상 그룹",
+            "대상 프로토콜:포트",
+            "대상 서버",
+        ],
+        "widths": [26, 20, 10, 22, 28, 16, 40, 26, 16, 28],
     },
     S_SERVER_ORG: {
         "note": "[수동 입력] 사용 기관·비고만 입력. 여러 기관이 쓰면 쉼표로 구분, "
@@ -245,6 +263,7 @@ def _guide(wb: Workbook, doc: Document, collected_at: str) -> None:
         (f"{S_ACG}: ACG별 Inbound/Outbound 규칙 (자동 수집)", False),
         (f"{S_NACL}: Subnet 단위 Network ACL 규칙 (자동 수집)", False),
         (f"{S_SUBNET}: VPC/Subnet 대역, 게이트웨이, NACL (자동 수집)", False),
+        (f"{S_LB}: Load Balancer와 대상 그룹·대상 서버 (자동 수집)", False),
         (f"{S_IPSEC}: 연결 대상별 Peer IP와 연동 대역 (수동 입력)", False),
         (f"{S_HISTORY}: 수시 현행화 내역 (수동 입력)", False),
         ("", False),
@@ -349,6 +368,7 @@ def write(
 
     _rows(_sheet(wb, S_NACL), report.nacl_rules)
     _rows(_sheet(wb, S_SUBNET), report.subnets)
+    _rows(_sheet(wb, S_LB), report.load_balancers)
 
     # 수동 입력 시트
     for name in MANUAL_SHEETS:

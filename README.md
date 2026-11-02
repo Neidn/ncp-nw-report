@@ -14,7 +14,8 @@ NCP API 호출은 [ncp-api-python](https://github.com/Neidn/ncp-api-python) v0.1
 | 서버-ACG 매핑 | 자동 | 1행 = 서버 1대 × ACG 1개. `사용 기관`은 서버-기관 시트에서 조회(수식) |
 | ACG 규칙 | 자동 | 1행 = 규칙 1개. `적용 서버 수`는 매핑 시트에서 자동 집계, `적용 기관`은 그 ACG가 걸린 서버들의 사용 기관을 합친 값(작성 시점 기준) |
 | NACL 규칙 | 자동 | Subnet 단위 규칙 (우선순위 순), Deny-Allow Group 이름 표기 |
-| Subnet 목록 | 자동 | VPC/Subnet 대역, 게이트웨이(대역 첫 IP), 유형·용도, NACL |
+| Subnet 목록 | 자동 | VPC/Subnet 대역, 게이트웨이(대역 첫 IP), 유형(공인/사설)·용도(일반/LB용/NAT용), NACL |
+| LB 목록 | 자동 | 1행 = LB × 대상 그룹. 유형, 공인/사설, Subnet, LB IP, 도메인, 대상 그룹 프로토콜:포트, 대상 서버 |
 | IPsec VPN | **수동** | 1행 = 상대 측 대역 1개. 연결 대상, 상대 측 Peer IP·대역, NCP Peer IP·내부 대역, 이중화 (상대 측/NCP 측 열 색 구분) |
 | 변경이력 | **수동** | 수시 현행화 내역 |
 
@@ -87,6 +88,7 @@ uv run ncp-nw-report demo --out out/sample_report.xlsx
 | ACG / ACG 규칙 | `server.get_access_control_group_list`, `server.get_access_control_group_rule_list` | |
 | Network ACL / 규칙 | `vpc.get_network_acl_list`, `vpc.get_network_acl_rule_list` | |
 | Deny-Allow Group | `vpc.get_network_acl_deny_allow_group_list` | 실패 시 번호로 표기 |
+| Load Balancer / Target Group | `load_balancer.get_load_balancer_instance_list`, `load_balancer.get_target_group_list` | 실패 시 LB 목록 생략. 리스너(LB 측 포트)는 라이브러리 미지원으로 미표기 |
 
 ## 주의
 
