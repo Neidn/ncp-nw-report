@@ -1,0 +1,484 @@
+{
+ "collected_at": "2026-11-03T09:00:00+09:00",
+ "vpcs": [
+  {
+   "vpcNo": "v1",
+   "vpcName": "example-prd-vpc",
+   "ipv4CidrBlock": "10.1.0.0/16"
+  },
+  {
+   "vpcNo": "v2",
+   "vpcName": "example-k8s-vpc",
+   "ipv4CidrBlock": "10.3.0.0/16"
+  },
+  {
+   "vpcNo": "v3",
+   "vpcName": "example-sec-vpc",
+   "ipv4CidrBlock": "10.200.0.0/16"
+  }
+ ],
+ "subnets": [
+  {
+   "subnetNo": "s1",
+   "vpcNo": "v1",
+   "subnetName": "example-prd-db-sub",
+   "subnet": "10.1.30.0/24",
+   "subnetType": {
+    "code": "PRIVATE"
+   },
+   "usageType": {
+    "code": "GEN"
+   },
+   "networkAclNo": "n1"
+  },
+  {
+   "subnetNo": "s2",
+   "vpcNo": "v1",
+   "subnetName": "example-prd-lb-sub",
+   "subnet": "10.1.1.0/24",
+   "subnetType": {
+    "code": "PRIVATE"
+   },
+   "usageType": {
+    "code": "LOADB"
+   },
+   "networkAclNo": "n2"
+  },
+  {
+   "subnetNo": "s3",
+   "vpcNo": "v2",
+   "subnetName": "example-k8s-node-sub",
+   "subnet": "10.3.10.0/24",
+   "subnetType": {
+    "code": "PRIVATE"
+   },
+   "usageType": {
+    "code": "GEN"
+   },
+   "networkAclNo": "n3"
+  },
+  {
+   "subnetNo": "s4",
+   "vpcNo": "v2",
+   "subnetName": "example-k8s-lb-sub",
+   "subnet": "10.3.6.0/24",
+   "subnetType": {
+    "code": "PRIVATE"
+   },
+   "usageType": {
+    "code": "LOADB"
+   },
+   "networkAclNo": "n3"
+  },
+  {
+   "subnetNo": "s5",
+   "vpcNo": "v3",
+   "subnetName": "example-sec-pri-sub",
+   "subnet": "10.200.1.0/24",
+   "subnetType": {
+    "code": "PRIVATE"
+   },
+   "usageType": {
+    "code": "GEN"
+   },
+   "networkAclNo": "n4"
+  },
+  {
+   "subnetNo": "s6",
+   "vpcNo": "v3",
+   "subnetName": "example-sec-lb-sub",
+   "subnet": "10.200.2.0/24",
+   "subnetType": {
+    "code": "PUBLIC"
+   },
+   "usageType": {
+    "code": "LOADB"
+   },
+   "networkAclNo": "n4"
+  }
+ ],
+ "servers": [
+  {
+   "serverInstanceNo": "100",
+   "serverName": "example-db-01",
+   "vpcNo": "v1",
+   "subnetNo": "s1"
+  },
+  {
+   "serverInstanceNo": "101",
+   "serverName": "example-db-02",
+   "vpcNo": "v1",
+   "subnetNo": "s1"
+  },
+  {
+   "serverInstanceNo": "102",
+   "serverName": "example-db-03",
+   "vpcNo": "v1",
+   "subnetNo": "s1"
+  },
+  {
+   "serverInstanceNo": "200",
+   "serverName": "example-k8s-worker-01",
+   "vpcNo": "v2",
+   "subnetNo": "s3"
+  },
+  {
+   "serverInstanceNo": "300",
+   "serverName": "example-access-01",
+   "vpcNo": "v3",
+   "subnetNo": "s5"
+  },
+  {
+   "serverInstanceNo": "301",
+   "serverName": "example-bastion-01",
+   "vpcNo": "v3",
+   "subnetNo": "s5"
+  }
+ ],
+ "nics": [
+  {
+   "networkInterfaceNo": "e100",
+   "instanceNo": "100",
+   "subnetNo": "s1",
+   "ip": "10.1.30.9",
+   "accessControlGroupNoList": [
+    "a1",
+    "a2"
+   ]
+  },
+  {
+   "networkInterfaceNo": "e101",
+   "instanceNo": "101",
+   "subnetNo": "s1",
+   "ip": "10.1.30.10",
+   "accessControlGroupNoList": [
+    "a1",
+    "a2"
+   ]
+  },
+  {
+   "networkInterfaceNo": "e102",
+   "instanceNo": "102",
+   "subnetNo": "s1",
+   "ip": "10.1.30.11",
+   "accessControlGroupNoList": [
+    "a1",
+    "a2"
+   ]
+  },
+  {
+   "networkInterfaceNo": "e200",
+   "instanceNo": "200",
+   "subnetNo": "s3",
+   "ip": "10.3.10.10",
+   "accessControlGroupNoList": [
+    "a3",
+    "a4"
+   ]
+  },
+  {
+   "networkInterfaceNo": "e300",
+   "instanceNo": "300",
+   "subnetNo": "s5",
+   "ip": "10.200.1.6",
+   "accessControlGroupNoList": [
+    "a5"
+   ]
+  },
+  {
+   "networkInterfaceNo": "e301",
+   "instanceNo": "301",
+   "subnetNo": "s5",
+   "ip": "10.200.1.8",
+   "accessControlGroupNoList": [
+    "a5"
+   ]
+  }
+ ],
+ "acgs": [
+  {
+   "accessControlGroupNo": "a1",
+   "accessControlGroupName": "example-db-acg",
+   "vpcNo": "v1",
+   "accessControlGroupDescription": "운영 DB"
+  },
+  {
+   "accessControlGroupNo": "a2",
+   "accessControlGroupName": "example-prd-mgmt-acg",
+   "vpcNo": "v1",
+   "accessControlGroupDescription": "관리 접속 공통"
+  },
+  {
+   "accessControlGroupNo": "a3",
+   "accessControlGroupName": "example-k8s-worker-acg",
+   "vpcNo": "v2",
+   "accessControlGroupDescription": "k8s 워커"
+  },
+  {
+   "accessControlGroupNo": "a4",
+   "accessControlGroupName": "example-k8s-mgmt-acg",
+   "vpcNo": "v2",
+   "accessControlGroupDescription": "관리 접속 공통"
+  },
+  {
+   "accessControlGroupNo": "a5",
+   "accessControlGroupName": "example-sec-acg",
+   "vpcNo": "v3",
+   "accessControlGroupDescription": "보안 VPC 관리"
+  },
+  {
+   "accessControlGroupNo": "a9",
+   "accessControlGroupName": "example-unused-acg",
+   "vpcNo": "v1",
+   "accessControlGroupDescription": "미사용 예시"
+  }
+ ],
+ "acg_rules": [
+  {
+   "accessControlGroupNo": "a1",
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "ipBlock": "10.3.10.0/24",
+   "portRange": "8629",
+   "accessControlGroupRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "accessControlGroupRuleDescription": "k8s 워커 → DB"
+  },
+  {
+   "accessControlGroupNo": "a1",
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "ipBlock": "10.200.1.9/32",
+   "portRange": "8629",
+   "accessControlGroupRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "accessControlGroupRuleDescription": "DB 접근제어 경유"
+  },
+  {
+   "accessControlGroupNo": "a1",
+   "protocolType": {
+    "code": "ALL"
+   },
+   "ipBlock": "0.0.0.0/0",
+   "portRange": "",
+   "accessControlGroupRuleType": {
+    "code": "OTBND",
+    "codeName": "Outbound"
+   },
+   "accessControlGroupRuleDescription": "기본 아웃바운드"
+  },
+  {
+   "accessControlGroupNo": "a2",
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "ipBlock": "10.200.1.6/32",
+   "portRange": "22",
+   "accessControlGroupRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "accessControlGroupRuleDescription": "서버 접근제어 경유 SSH"
+  },
+  {
+   "accessControlGroupNo": "a2",
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "ipBlock": "10.200.1.8/32",
+   "portRange": "22",
+   "accessControlGroupRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "accessControlGroupRuleDescription": "Bastion 경유 SSH"
+  },
+  {
+   "accessControlGroupNo": "a3",
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "ipBlock": "10.3.6.0/24",
+   "portRange": "30000-32767",
+   "accessControlGroupRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "accessControlGroupRuleDescription": "LB → NodePort"
+  },
+  {
+   "accessControlGroupNo": "a4",
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "ipBlock": "10.200.1.6/32",
+   "portRange": "22",
+   "accessControlGroupRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "accessControlGroupRuleDescription": "서버 접근제어 경유 SSH"
+  },
+  {
+   "accessControlGroupNo": "a5",
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "ipBlock": "",
+   "accessControlGroupSequence": "a5",
+   "portRange": "443",
+   "accessControlGroupRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "accessControlGroupRuleDescription": "동일 ACG 간 통신"
+  },
+  {
+   "accessControlGroupNo": "a5",
+   "protocolType": {
+    "code": "ICMP"
+   },
+   "ipBlock": "10.0.0.0/8",
+   "portRange": "",
+   "accessControlGroupRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "accessControlGroupRuleDescription": "ping"
+  }
+ ],
+ "nacls": [
+  {
+   "networkAclNo": "n1",
+   "networkAclName": "example-db-nacl",
+   "vpcNo": "v1"
+  },
+  {
+   "networkAclNo": "n2",
+   "networkAclName": "example-lb-nacl",
+   "vpcNo": "v1"
+  },
+  {
+   "networkAclNo": "n3",
+   "networkAclName": "example-k8s-vpc-default-network-acl",
+   "vpcNo": "v2"
+  },
+  {
+   "networkAclNo": "n4",
+   "networkAclName": "example-sec-nacl",
+   "vpcNo": "v3"
+  }
+ ],
+ "nacl_rules": [
+  {
+   "networkAclNo": "n1",
+   "priority": 10,
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "portRange": "8629",
+   "ruleAction": {
+    "code": "ALLOW"
+   },
+   "ipBlock": "10.3.10.0/24",
+   "networkAclRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "networkAclRuleDescription": "k8s 워커 → DB"
+  },
+  {
+   "networkAclNo": "n1",
+   "priority": 20,
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "portRange": "22",
+   "ruleAction": {
+    "code": "ALLOW"
+   },
+   "ipBlock": "10.200.1.0/24",
+   "networkAclRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "networkAclRuleDescription": "보안 VPC 관리 접속"
+  },
+  {
+   "networkAclNo": "n1",
+   "priority": 30,
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "portRange": "1-65535",
+   "ruleAction": {
+    "code": "DROP"
+   },
+   "ipBlock": "",
+   "denyAllowGroupNo": "g1",
+   "networkAclRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "networkAclRuleDescription": "차단 IP 그룹"
+  },
+  {
+   "networkAclNo": "n1",
+   "priority": 199,
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "portRange": "1-65535",
+   "ruleAction": {
+    "code": "DROP"
+   },
+   "ipBlock": "0.0.0.0/0",
+   "networkAclRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "networkAclRuleDescription": "그 외 차단"
+  },
+  {
+   "networkAclNo": "n4",
+   "priority": 10,
+   "protocolType": {
+    "code": "TCP",
+    "codeName": "tcp"
+   },
+   "portRange": "443",
+   "ruleAction": {
+    "code": "ALLOW"
+   },
+   "ipBlock": "0.0.0.0/0",
+   "networkAclRuleType": {
+    "code": "INBND",
+    "codeName": "Inbound"
+   },
+   "networkAclRuleDescription": "HTTPS 서비스"
+  }
+ ],
+ "deny_allow_groups": [
+  {
+   "networkAclDenyAllowGroupNo": "g1",
+   "networkAclDenyAllowGroupName": "blocked-ip-group"
+  }
+ ]
+}

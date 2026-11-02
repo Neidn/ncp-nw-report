@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+# 실제 산출물·원본 덤프는 접근통제 정책이 담겨 있으므로 커밋하지 않음
+out/
+*.raw.json
+*.xlsx
+!examples/sample_report.xlsx
+
