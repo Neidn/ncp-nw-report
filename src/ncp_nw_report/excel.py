@@ -1,7 +1,7 @@
 """별첨 엑셀 작성.
 
 자동 수집 시트(서버-ACG 매핑, ACG 규칙, NACL 규칙, Subnet 목록)는 매번 새로 쓰고,
-수동 입력 시트(IPsec 터널, IPsec 연동 대역, 변경이력)는 이전 파일이 주어지면
+수동 입력 시트(IPsec VPN, 변경이력)는 이전 파일이 주어지면
 그 내용을 그대로 옮겨 온다.
 """
 
@@ -15,7 +15,6 @@ from typing import Any
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
 
 from ncp_nw_report.transform import Report
@@ -33,7 +32,6 @@ FONT = "Arial"
 HEADER_ROW = 4
 FIRST = HEADER_ROW + 1
 MANUAL_ROWS = 100  # 수동 입력 시트에 미리 서식/수식을 깔아 둘 행 수
-REF_END = 5000  # 시트 간 참조 수식의 범위 끝 행
 
 _thin = Side(style="thin", color="BFBFBF")
 BORDER = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
@@ -44,8 +42,7 @@ S_MAP = "서버-ACG 매핑"
 S_ACG = "ACG 규칙"
 S_NACL = "NACL 규칙"
 S_SUBNET = "Subnet 목록"
-S_TUNNEL = "IPsec 터널"
-S_RANGE = "IPsec 연동 대역"
+S_IPSEC = "IPsec VPN"
 S_HISTORY = "변경이력"
 
 SHEETS: dict[str, dict[str, Any]] = {
@@ -107,27 +104,26 @@ SHEETS: dict[str, dict[str, Any]] = {
         ],
         "widths": [22, 15, 30, 16, 14, 10, 10, 26],
     },
-    S_TUNNEL: {
-        "note": "[수동 입력] 1행 = 터널 1개. 대역폭은 인터넷 기반 터널이므로 기재하지 "
-        "않음. 마지막 열은 자동 집계",
+    S_IPSEC: {
+        "note": "[수동 입력] 1행 = 상대 측 대역 1개. 값이 여러 개인 칸(Peer IP, "
+        "NCP 내부 대역)은 셀 안에서 줄바꿈으로 구분. "
+        "대역 간 실제 허용은 ACG/NACL 시트 참조",
         "headers": [
             "연결 대상",
-            "VPN Gateway",
-            "터널명",
             "상대 측 Peer IP",
+            "상대 측 대역",
+            "NCP Peer IP",
+            "NCP 내부 대역",
             "이중화",
             "비고",
-            "연동 대역 수",
         ],
-        "widths": [16, 18, 22, 16, 12, 24, 13],
-        "manual_cols": 6,
-    },
-    S_RANGE: {
-        "note": "[수동 입력] 1행 = 대역 1개. 상대 측·클라우드 측 대역 수가 달라도 각각 "
-        "행으로 작성 (대역 간 실제 허용은 ACG/NACL 시트 참조)",
-        "headers": ["터널명", "구분", "연동 대역", "대역 설명", "비고"],
-        "widths": [22, 12, 18, 26, 24],
-        "manual_cols": 5,
+        "widths": [26, 20, 20, 30, 20, 10, 24],
+        "manual_cols": 7,
+        # 열 그룹: (시작 열, 끝 열, 그룹명, 헤더색, 입력칸색)
+        "groups": [
+            (2, 3, "상대 측", "C55A11", "FCE4D6"),
+            (4, 5, "NCP 측", "2E75B6", "DDEBF7"),
+        ],
     },
     S_HISTORY: {
         "note": "[수동 입력] 수시 현행화 내역",
@@ -137,7 +133,7 @@ SHEETS: dict[str, dict[str, Any]] = {
     },
 }
 
-MANUAL_SHEETS = [S_TUNNEL, S_RANGE, S_HISTORY]
+MANUAL_SHEETS = [S_IPSEC, S_HISTORY]
 
 
 def _cell(ws: Worksheet, row: int, col: int, value: Any) -> None:
@@ -145,6 +141,17 @@ def _cell(ws: Worksheet, row: int, col: int, value: Any) -> None:
     c.font = Font(name=FONT, size=10)
     c.border = BORDER
     c.alignment = Alignment(vertical="center", wrap_text=True)
+
+
+def _fit_rows(ws: Worksheet, first: int, last: int) -> None:
+    """셀 안 줄바꿈 수에 맞춰 행 높이 지정 (엑셀이 자동 조정하지 않는 경우 대비)."""
+    for r in range(first, last + 1):
+        lines = max(
+            (str(c.value).count("\n") + 1 for c in ws[r] if c.value is not None),
+            default=1,
+        )
+        if lines > 1:
+            ws.row_dimensions[r].height = 14 * lines
 
 
 def _sheet(wb: Workbook, name: str) -> Worksheet:
@@ -160,9 +167,21 @@ def _sheet(wb: Workbook, name: str) -> Worksheet:
         c.fill = HEAD_FILL
         c.border = BORDER
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    for start, end, label, head, _ in spec.get("groups", []):
+        for col in range(start, end + 1):
+            g = ws.cell(HEADER_ROW - 1, col, label if col == start else None)
+            g.font = Font(name=FONT, bold=True, color="FFFFFF", size=10)
+            g.fill = PatternFill("solid", fgColor=head)
+            g.alignment = Alignment(horizontal="center", vertical="center")
+            ws.cell(HEADER_ROW, col).fill = PatternFill("solid", fgColor=head)
     for i, w in enumerate(spec["widths"], 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.freeze_panes = ws.cell(FIRST, 1)
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = f"{HEADER_ROW}:{HEADER_ROW}"
     return ws
 
 
@@ -171,6 +190,7 @@ def _rows(ws: Worksheet, rows: list[list[Any]]) -> int:
         for c, v in enumerate(row, 1):
             _cell(ws, r, c, v)
     last = FIRST + len(rows) - 1
+    _fit_rows(ws, FIRST, last)
     ncol = ws.max_column
     ws.auto_filter.ref = f"A{HEADER_ROW}:{get_column_letter(ncol)}{max(last, FIRST)}"
     return last
@@ -213,8 +233,7 @@ def _guide(wb: Workbook, doc: Document, collected_at: str) -> None:
         (f"{S_ACG}: ACG별 Inbound/Outbound 규칙 (자동 수집)", False),
         (f"{S_NACL}: Subnet 단위 Network ACL 규칙 (자동 수집)", False),
         (f"{S_SUBNET}: VPC/Subnet 대역, 게이트웨이, NACL (자동 수집)", False),
-        (f"{S_TUNNEL}: 연결 대상별 IPsec 터널 (수동 입력)", False),
-        (f"{S_RANGE}: 터널별 상대 측·클라우드 측 연동 대역 (수동 입력)", False),
+        (f"{S_IPSEC}: 연결 대상별 Peer IP와 연동 대역 (수동 입력)", False),
         (f"{S_HISTORY}: 수시 현행화 내역 (수동 입력)", False),
         ("", False),
         ("■ 작성 기준", True),
@@ -223,6 +242,7 @@ def _guide(wb: Workbook, doc: Document, collected_at: str) -> None:
         ("출발지가 ACG인 규칙은 '출발지 구분'을 ACG로 표기", False),
         ("ACG는 VPC 단위 자원이므로 VPC 열과 함께 확인", False),
         ("연한 초록색 칸은 수동 입력 칸", False),
+        (f"{S_IPSEC} 시트는 상대 측(주황), NCP 측(파랑)으로 열 색을 구분", False),
     ]
     for i, (text, bold) in enumerate(lines, 1):
         c = ws.cell(i, 1, text)
@@ -265,34 +285,22 @@ def write(
         ws = _sheet(wb, name)
         ncols = SHEETS[name]["manual_cols"]
         rows = manual[name]
+        fills = {
+            col: PatternFill("solid", fgColor=cell_color)
+            for start, end, _, _, cell_color in SHEETS[name].get("groups", [])
+            for col in range(start, end + 1)
+        }
         total = max(len(rows) + 20, MANUAL_ROWS)
         for r in range(FIRST, FIRST + total):
             values = rows[r - FIRST] if r - FIRST < len(rows) else [None] * ncols
             for c in range(1, ncols + 1):
                 _cell(ws, r, c, values[c - 1] if c - 1 < len(values) else None)
-                ws.cell(r, c).fill = MANUAL_FILL
+                ws.cell(r, c).fill = fills.get(c, MANUAL_FILL)
         last = FIRST + total - 1
+        _fit_rows(ws, FIRST, FIRST + len(rows) - 1)
         ws.auto_filter.ref = (
             f"A{HEADER_ROW}:{get_column_letter(len(SHEETS[name]['headers']))}{last}"
         )
-        if name == S_TUNNEL:
-            for r in range(FIRST, last + 1):
-                _cell(
-                    ws,
-                    r,
-                    7,
-                    f'=IF(C{r}="","",COUNTIF(\'{S_RANGE}\'!$A${FIRST}:$A${REF_END},'
-                    f"C{r}))",
-                )
-                ws.cell(r, 7).alignment = Alignment(
-                    horizontal="center", vertical="center"
-                )
-        if name == S_RANGE:
-            dv = DataValidation(
-                type="list", formula1='"상대 측,클라우드 측"', allow_blank=True
-            )
-            ws.add_data_validation(dv)
-            dv.add(f"B{FIRST}:B{REF_END}")
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)

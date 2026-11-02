@@ -14,8 +14,7 @@ NCP API 호출은 [ncp-api-python](https://github.com/Neidn/ncp-api-python) (`Nc
 | ACG 규칙 | 자동 | 1행 = 규칙 1개, `적용 서버 수`는 매핑 시트에서 자동 집계 |
 | NACL 규칙 | 자동 | Subnet 단위 규칙 (우선순위 순), Deny-Allow Group 이름 표기 |
 | Subnet 목록 | 자동 | VPC/Subnet 대역, 게이트웨이(대역 첫 IP), 유형·용도, NACL |
-| IPsec 터널 | **수동** | 1행 = 터널 1개, `연동 대역 수` 자동 집계 |
-| IPsec 연동 대역 | **수동** | 1행 = 대역 1개 (상대 측/클라우드 측 수가 달라도 각각 행) |
+| IPsec VPN | **수동** | 1행 = 상대 측 대역 1개. 연결 대상, 상대 측 Peer IP·대역, NCP Peer IP·내부 대역, 이중화 (상대 측/NCP 측 열 색 구분) |
 | 변경이력 | **수동** | 수시 현행화 내역 |
 
 수동 시트는 `--previous` 로 이전 별첨 파일을 주면 내용을 그대로 옮겨 옵니다. 자동 시트만 새로 갱신됩니다.
@@ -67,7 +66,7 @@ uv run ncp-nw-report demo --out out/sample_report.xlsx
 | 옵션 | 설명 |
 |---|---|
 | `--title` / `--author` / `--version` / `--classification` | 작성기준 시트의 문서 정보 (기본 보안등급: 대외비) |
-| `--previous` | 수동 입력 시트(IPsec 터널, IPsec 연동 대역, 변경이력)를 가져올 이전 파일 |
+| `--previous` | 수동 입력 시트(IPsec VPN, 변경이력)를 가져올 이전 파일 |
 | `--dump-raw` | API 조회 원본 저장 (`*.raw.json`) |
 | `--env` | `gov` / `public` / `fin` (미지정 시 `NCP_ENV`, 없으면 `public`) |
 
