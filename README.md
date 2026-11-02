@@ -3,7 +3,7 @@
 네트워크 구성도 현행화용 **접근통제 정책 별첨 엑셀**을 NCP API로 생성합니다.
 구성도에는 통제 지점만 표기하고, ACG·NACL·Subnet 상세는 이 별첨으로 관리하는 것을 전제로 합니다.
 
-NCP API 호출은 [ncp-api-python](https://github.com/Neidn/ncp-api-python) (`NcpClient`)을 사용하며, **조회 API만** 호출합니다.
+NCP API 호출은 [ncp-api-python](https://github.com/Neidn/ncp-api-python) v0.12.0 이상 (`NcpClient`)을 사용하며, **조회 API만** 호출합니다.
 
 ## 시트 구성
 
@@ -77,8 +77,8 @@ uv run ncp-nw-report demo --out out/sample_report.xlsx
 | VPC / Subnet | `vpc.get_vpc_list`, `vpc.get_subnet_list` | |
 | 서버 / NIC | `server.get_server_instance_list`, `server.get_network_interface_list` | 서버별 ACG는 NIC의 `accessControlGroupNoList` 기준 |
 | ACG / ACG 규칙 | `server.get_access_control_group_list`, `server.get_access_control_group_rule_list` | |
-| Network ACL / 규칙 | `/vpc/v2/getNetworkAclList`, `/vpc/v2/getNetworkAclRuleList` | 라이브러리에 메서드가 없어 `client.vpc.request()` 로 직접 호출 |
-| Deny-Allow Group | `/vpc/v2/getNetworkAclDenyAllowGroupList` | 실패 시 번호로 표기 |
+| Network ACL / 규칙 | `vpc.get_network_acl_list`, `vpc.get_network_acl_rule_list` | |
+| Deny-Allow Group | `vpc.get_network_acl_deny_allow_group_list` | 실패 시 번호로 표기 |
 
 ## 주의
 

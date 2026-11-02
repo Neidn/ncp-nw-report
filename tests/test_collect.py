@@ -42,7 +42,7 @@ class FakeServer:
 
 class FakeVpc:
     def __init__(self) -> None:
-        self.requests: list[tuple[str, dict[str, str]]] = []
+        self.calls: list[tuple[str, Any]] = []
 
     def get_vpc_list(self, *, region_code: str | None = None) -> dict[str, Any]:
         return {"totalRows": 1, "vpcList": [{"vpcNo": "v1"}]}
@@ -50,16 +50,24 @@ class FakeVpc:
     def get_subnet_list(self, **_: Any) -> dict[str, Any]:
         return {"totalRows": 0, "subnetList": []}
 
-    def request(self, method: str, path: str, **kw: Any) -> dict[str, Any]:
-        self.requests.append((path, kw["params"]))
-        action = path.lstrip("/")
-        if action == "getNetworkAclList":
-            body = {"totalRows": 1, "networkAclList": [{"networkAclNo": "n1"}]}
-        elif action == "getNetworkAclRuleList":
-            body = {"networkAclRuleList": [{"priority": 10}]}
-        else:
-            body = {"totalRows": 0, "networkAclDenyAllowGroupList": []}
-        return {f"{action}Response": body}
+    def get_network_acl_list(
+        self,
+        *,
+        region_code: str | None = None,
+        page_no: int | None = None,
+        page_size: int | None = None,
+    ) -> dict[str, Any]:
+        self.calls.append(("acl", region_code))
+        return {"totalRows": 1, "networkAclList": [{"networkAclNo": "n1"}]}
+
+    def get_network_acl_rule_list(
+        self, *, network_acl_no: str, region_code: str | None = None
+    ) -> dict[str, Any]:
+        self.calls.append(("rule", network_acl_no))
+        return {"networkAclRuleList": [{"priority": 10}]}
+
+    def get_network_acl_deny_allow_group_list(self, **_: Any) -> dict[str, Any]:
+        raise RuntimeError("permission denied")
 
 
 class FakeClient:
@@ -80,10 +88,9 @@ def test_collect_attaches_parent_ids():
     assert raw["nacl_rules"][0]["networkAclNo"] == "n1"
 
 
-def test_nacl_uses_vpc_request_with_json_format():
+def test_nacl_uses_library_methods():
     client = FakeClient()
-    Collector(client, region_code="KR").collect()
-    path, params = client.vpc.requests[0]
-    assert path == "/getNetworkAclList"
-    assert params["responseFormatType"] == "json"
-    assert params["regionCode"] == "KR"
+    raw = Collector(client, region_code="KR").collect()
+    assert client.vpc.calls == [("acl", "KR"), ("rule", "n1")]
+    # Deny-Allow Group 조회 실패는 무시
+    assert raw["deny_allow_groups"] == []

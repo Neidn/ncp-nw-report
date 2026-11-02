@@ -1,7 +1,6 @@
 """NCP API에서 원본 데이터 수집 (조회 API만 사용).
 
-ncp-api-python(NcpClient)을 사용한다. Network ACL 조회 메서드는 라이브러리에
-아직 없어서 VpcApi 의 공통 request() 로 /vpc/v2 액션을 직접 호출한다.
+ncp-api-python(NcpClient, v0.12.0 이상)을 사용한다.
 """
 
 from __future__ import annotations
@@ -71,30 +70,6 @@ class Collector:
                 break
         return list(items.values())
 
-    def _vpc_action(self, action: str) -> ListFn:
-        """라이브러리에 메서드가 없는 /vpc/v2 조회 액션을 함수로 감싼다."""
-
-        def call(
-            *,
-            region_code: str | None = None,
-            page_no: int | None = None,
-            page_size: int | None = None,
-            **params: Any,
-        ) -> dict[str, Any]:
-            query = {k: str(v) for k, v in params.items() if v is not None}
-            if region_code:
-                query["regionCode"] = region_code
-            if page_no is not None:
-                query["pageNo"] = str(page_no)
-            if page_size is not None:
-                query["pageSize"] = str(page_size)
-            query["responseFormatType"] = "json"
-            raw = self.client.vpc.request("GET", f"/{action}", params=query)
-            result: dict[str, Any] = raw[f"{action}Response"]
-            return result
-
-        return call
-
     # --- 수집 ---
 
     def collect(self) -> dict[str, Any]:
@@ -127,23 +102,22 @@ class Collector:
                 rule.setdefault("accessControlGroupNo", acg["accessControlGroupNo"])
                 acg_rules.append(rule)
 
-        nacls = self._list(
-            self._vpc_action("getNetworkAclList"), "networkAclList", "networkAclNo"
-        )
+        nacls = self._list(vpc.get_network_acl_list, "networkAclList", "networkAclNo")
         nacl_rules: list[dict[str, Any]] = []
-        rule_fn = self._vpc_action("getNetworkAclRuleList")
         for nacl in nacls:
-            res = rule_fn(
-                region_code=self.region_code, networkAclNo=nacl["networkAclNo"]
+            res = self._call(
+                vpc.get_network_acl_rule_list,
+                network_acl_no=nacl["networkAclNo"],
+                region_code=self.region_code,
             )
             for rule in res.get("networkAclRuleList", []):
                 rule.setdefault("networkAclNo", nacl["networkAclNo"])
                 nacl_rules.append(rule)
 
-        # Deny-Allow Group 이름 (NACL 규칙에서 참조). 없거나 권한이 없으면 생략.
+        # Deny-Allow Group 이름 (NACL 규칙에서 참조). 실패 시 번호로 표기.
         try:
             dag = self._list(
-                self._vpc_action("getNetworkAclDenyAllowGroupList"),
+                vpc.get_network_acl_deny_allow_group_list,
                 "networkAclDenyAllowGroupList",
                 "networkAclDenyAllowGroupNo",
             )
