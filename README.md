@@ -3,7 +3,7 @@
 네트워크 구성도 현행화용 **접근통제 정책 별첨 엑셀**을 NCP API로 생성합니다.
 구성도에는 통제 지점만 표기하고, ACG·NACL·Subnet 상세는 이 별첨으로 관리하는 것을 전제로 합니다.
 
-NCP API 호출은 [ncp-api-python](https://github.com/Neidn/ncp-api-python) v0.13.0 이상 (`NcpClient`)을 사용하며, **조회 API만** 호출합니다.
+NCP API 호출은 [ncp-api-python](https://github.com/Neidn/ncp-api-python) v0.15.0 이상 (`NcpClient`)을 사용하며, **조회 API만** 호출합니다.
 
 ## 시트 구성
 
@@ -15,7 +15,7 @@ NCP API 호출은 [ncp-api-python](https://github.com/Neidn/ncp-api-python) v0.1
 | ACG 규칙 | 자동 | 1행 = 규칙 1개. `적용 서버 수`는 매핑 시트에서 자동 집계, `적용 기관`은 그 ACG가 걸린 서버들의 사용 기관을 합친 값(작성 시점 기준) |
 | NACL 규칙 | 자동 | Subnet 단위 규칙 (우선순위 순), Deny-Allow Group 이름 표기 |
 | Subnet 목록 | 자동 | VPC/Subnet 대역, 게이트웨이(대역 첫 IP), 유형(공인/사설)·용도(일반/LB용/NAT용), NACL |
-| LB 목록 | 자동 | 1행 = LB × 대상 그룹. 유형, 공인/사설, Subnet, LB IP, 도메인, 리스너, 대상 그룹 프로토콜:포트, 대상 서버 |
+| LB 목록 | 자동 | 1행 = LB × 리스너 × 규칙 × 대상 그룹. 유형, 공인/사설, Subnet, LB IP, 도메인, 리스너, 규칙 우선순위·조건(Host/Path)·동작(전달/리다이렉트), 대상 그룹 프로토콜:포트, 대상 서버(IP) |
 | IPsec VPN | **수동** | 1행 = 상대 측 대역 1개. 연결 대상, 상대 측 Peer IP·대역, NCP Peer IP·내부 대역, 이중화 (상대 측/NCP 측 열 색 구분) |
 | 변경이력 | **수동** | 수시 현행화 내역 |
 
@@ -88,7 +88,7 @@ uv run ncp-nw-report demo --out out/sample_report.xlsx
 | ACG / ACG 규칙 | `server.get_access_control_group_list`, `server.get_access_control_group_rule_list` | |
 | Network ACL / 규칙 | `vpc.get_network_acl_list`, `vpc.get_network_acl_rule_list` | |
 | Deny-Allow Group | `vpc.get_network_acl_deny_allow_group_list` | 실패 시 번호로 표기 |
-| Load Balancer / Target Group | `load_balancer.get_load_balancer_instance_list`, `load_balancer.get_target_group_list`, `load_balancer.get_load_balancer_listener_list` | 실패 시 LB 목록 생략. 리스너별 대상 그룹 연결(ALB 규칙)은 미표기 |
+| Load Balancer / Target Group | `load_balancer.get_load_balancer_instance_list`, `load_balancer.get_target_group_list`, `load_balancer.get_load_balancer_listener_list`, `load_balancer.get_load_balancer_rule_list`, `load_balancer.get_target_list` | 실패 시 LB 목록 생략. 규칙·대상 조회 개별 실패는 경고 후 계속 |
 
 ## 주의
 

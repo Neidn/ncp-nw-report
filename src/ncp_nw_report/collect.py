@@ -1,6 +1,6 @@
 """NCP API에서 원본 데이터 수집 (조회 API만 사용).
 
-ncp-api-python(NcpClient, v0.13.0 이상)을 사용한다.
+ncp-api-python(NcpClient, v0.15.0 이상)을 사용한다.
 """
 
 from __future__ import annotations
@@ -71,6 +71,17 @@ class Collector:
                 break
         return list(items.values())
 
+    def _optional(self, fn: ListFn, **kwargs: Any) -> dict[str, Any]:
+        """세부 조회(규칙, 대상) 1건 실패는 경고만 남기고 계속 진행."""
+        try:
+            return self._call(fn, region_code=self.region_code, **kwargs)
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"[경고] {getattr(fn, '__name__', fn)} {kwargs} 실패: {exc}",
+                file=sys.stderr,
+            )
+            return {}
+
     # --- 수집 ---
 
     def collect(self) -> dict[str, Any]:
@@ -129,6 +140,8 @@ class Collector:
         lbs: list[dict[str, Any]] = []
         tgs: list[dict[str, Any]] = []
         listeners: list[dict[str, Any]] = []
+        lb_rules: list[dict[str, Any]] = []
+        targets: list[dict[str, Any]] = []
         lb_api = getattr(self.client, "load_balancer", None)
         if lb_api is not None:
             try:
@@ -151,6 +164,23 @@ class Collector:
                             "loadBalancerInstanceNo", lb["loadBalancerInstanceNo"]
                         )
                         listeners.append(ln)
+                for ln in listeners:
+                    res = self._optional(
+                        lb_api.get_load_balancer_rule_list,
+                        load_balancer_listener_no=ln["loadBalancerListenerNo"],
+                    )
+                    for rule in res.get("loadBalancerRuleList", []):
+                        rule.setdefault(
+                            "loadBalancerListenerNo", ln["loadBalancerListenerNo"]
+                        )
+                        lb_rules.append(rule)
+                for tg in tgs:
+                    res = self._optional(
+                        lb_api.get_target_list, target_group_no=tg["targetGroupNo"]
+                    )
+                    for t in res.get("targetList", []):
+                        t.setdefault("targetGroupNo", tg["targetGroupNo"])
+                        targets.append(t)
             except Exception as exc:  # noqa: BLE001
                 print(
                     f"[경고] Load Balancer 조회 실패, LB 목록 생략: {exc}",
@@ -170,6 +200,8 @@ class Collector:
             "load_balancers": lbs,
             "target_groups": tgs,
             "listeners": listeners,
+            "lb_rules": lb_rules,
+            "targets": targets,
         }
 
 

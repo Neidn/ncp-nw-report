@@ -83,7 +83,17 @@ class FakeLb:
     def get_load_balancer_listener_list(
         self, *, load_balancer_instance_no: str, region_code: str | None = None
     ) -> dict[str, Any]:
-        return {"loadBalancerListenerList": [{"port": 443}]}
+        return {"loadBalancerListenerList": [{"loadBalancerListenerNo": "l1"}]}
+
+    def get_load_balancer_rule_list(
+        self, *, load_balancer_listener_no: str, region_code: str | None = None
+    ) -> dict[str, Any]:
+        return {"loadBalancerRuleList": [{"priority": 1}]}
+
+    def get_target_list(
+        self, *, target_group_no: str, region_code: str | None = None
+    ) -> dict[str, Any]:
+        raise RuntimeError("detail failed")
 
 
 class DeniedLb:
@@ -125,7 +135,12 @@ def test_collect_load_balancers():
     raw = Collector(FakeClient()).collect()
     assert raw["load_balancers"][0]["loadBalancerInstanceNo"] == "lb1"
     assert raw["target_groups"][0]["targetGroupNo"] == "tg1"
-    assert raw["listeners"] == [{"port": 443, "loadBalancerInstanceNo": "lb1"}]
+    assert raw["listeners"] == [
+        {"loadBalancerListenerNo": "l1", "loadBalancerInstanceNo": "lb1"}
+    ]
+    assert raw["lb_rules"] == [{"priority": 1, "loadBalancerListenerNo": "l1"}]
+    # 대상 조회 1건 실패는 건너뜀
+    assert raw["targets"] == []
 
 
 def test_load_balancer_permission_error_is_skipped(capsys):

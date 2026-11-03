@@ -55,6 +55,173 @@ def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else [value]
 
 
+RULE_CONDITION = {"DEFAULT": "기본", "HOST_HEADER": "Host", "PATH_PATTERN": "Path"}
+RULE_ACTION = {
+    "FORWARD": "전달",
+    "REDIRECTION": "리다이렉트",
+    "FIXED_RESPONSE": "고정 응답",
+}
+
+
+def _find_all(obj: Any, key: str) -> list[Any]:
+    """중첩 dict/list 안에서 key 값을 모두 찾는다 (응답 구조 차이에 대응)."""
+    found: list[Any] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == key:
+                found.append(v)
+            found.extend(_find_all(v, key))
+    elif isinstance(obj, list):
+        for v in obj:
+            found.extend(_find_all(v, key))
+    return found
+
+
+def _condition_text(rule: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for cond in _as_list(rule.get("loadBalancerRuleConditionList")):
+        code = _code(cond.get("ruleConditionType"))
+        values: list[str] = []
+        for key in ("hostHeaderValueList", "pathPatternValueList"):
+            for v in _find_all(cond, key):
+                values.extend(str(x) for x in _as_list(v))
+        label = RULE_CONDITION.get(code, code)
+        parts.append(f"{label}: {', '.join(values)}" if values else label)
+    return "\n".join(parts) or "기본"
+
+
+def _action_text(rule: dict[str, Any]) -> str:
+    texts: list[str] = []
+    for act in _as_list(rule.get("loadBalancerRuleActionList")):
+        code = _code(act.get("ruleActionType"))
+        label = RULE_ACTION.get(code, code)
+        if code == "REDIRECTION":
+            redir = act.get("redirectionAction") or {}
+            proto = _code(redir.get("protocolType"))
+            port = redir.get("port", "")
+            if proto or port:
+                label += f" → {proto}:{port}"
+        if label:
+            texts.append(label)
+    return "\n".join(texts) or "전달"
+
+
+def build_load_balancers(
+    raw: dict[str, Any],
+    report: Report,
+    vpc_name: dict[str, str],
+    subnet: dict[str, dict[str, Any]],
+) -> None:
+    """LB 목록: 1행 = LB × 리스너 × 규칙 × 대상 그룹.
+
+    규칙 정보가 없는 LB는 LB × 대상 그룹 단위로 표기하고 리스너는 합쳐서 적는다.
+    """
+    server_name = {
+        str(s["serverInstanceNo"]): s.get("serverName", "") for s in raw["servers"]
+    }
+    tg_by_no = {str(t["targetGroupNo"]): t for t in raw.get("target_groups", [])}
+    targets_by_tg: dict[str, list[str]] = {}
+    for t in raw.get("targets", []):
+        name = t.get("targetName") or server_name.get(str(t.get("targetNo")), "")
+        ip = t.get("targetIp", "")
+        label = f"{name} ({ip})" if name and ip else (name or ip or str(t["targetNo"]))
+        targets_by_tg.setdefault(str(t["targetGroupNo"]), []).append(label)
+
+    def tg_cols(tg_no: str) -> list[Any]:
+        tg = tg_by_no.get(tg_no, {})
+        if not tg and not tg_no:
+            return ["", "", ""]
+        proto = _code(
+            _pick(tg, "targetGroupProtocolType", "targetGroupProtocolTypeCode")
+        )
+        port = tg.get("targetGroupPort", "")
+        servers = targets_by_tg.get(tg_no) or [
+            server_name.get(str(n), str(n)) for n in _as_list(_pick(tg, "targetNoList"))
+        ]
+        return [
+            tg.get("targetGroupName", tg_no),
+            f"{proto}:{port}" if proto or port else "",
+            "\n".join(servers),
+        ]
+
+    tgs_by_lb: dict[str, list[str]] = {}
+    for tg in raw.get("target_groups", []):
+        for lb_no in _as_list(
+            _pick(tg, "loadBalancerInstanceNoList", "loadBalancerInstanceNo")
+        ):
+            tgs_by_lb.setdefault(str(lb_no), []).append(str(tg["targetGroupNo"]))
+
+    listeners_by_lb: dict[str, list[dict[str, Any]]] = {}
+    for ln in raw.get("listeners", []):
+        listeners_by_lb.setdefault(
+            str(ln.get("loadBalancerInstanceNo", "")), []
+        ).append(ln)
+    rules_by_listener: dict[str, list[dict[str, Any]]] = {}
+    for rule in raw.get("lb_rules", []):
+        rules_by_listener.setdefault(
+            str(rule.get("loadBalancerListenerNo", "")), []
+        ).append(rule)
+
+    def listener_text(ln: dict[str, Any]) -> str:
+        proto = _code(_pick(ln, "protocolType", "protocolTypeCode"))
+        return f"{proto}:{ln.get('port', '')}"
+
+    for lb in raw.get("load_balancers", []):
+        lb_no = str(lb["loadBalancerInstanceNo"])
+        sub_nos = _as_list(_pick(lb, "subnetNoList")) or [
+            s.get("subnetNo") for s in _as_list(_pick(lb, "loadBalancerSubnetList"))
+        ]
+        base = [
+            lb.get("loadBalancerName", lb_no),
+            _label(
+                LB_TYPE, _code(_pick(lb, "loadBalancerType", "loadBalancerTypeCode"))
+            ),
+            _label(
+                LB_NETWORK,
+                _code(
+                    _pick(lb, "loadBalancerNetworkType", "loadBalancerNetworkTypeCode")
+                ),
+            ),
+            vpc_name.get(lb.get("vpcNo", ""), lb.get("vpcNo", "")),
+            "\n".join(
+                subnet.get(str(n), {}).get("subnetName", str(n)) for n in sub_nos if n
+            ),
+            "\n".join(str(ip) for ip in _as_list(_pick(lb, "loadBalancerIpList"))),
+            lb.get("loadBalancerDomain", ""),
+        ]
+        listeners = listeners_by_lb.get(lb_no, [])
+        has_rules = any(
+            rules_by_listener.get(str(ln.get("loadBalancerListenerNo")))
+            for ln in listeners
+        )
+        if not has_rules:
+            joined = "\n".join(listener_text(ln) for ln in listeners)
+            for tg_no in tgs_by_lb.get(lb_no) or [""]:
+                report.load_balancers.append(
+                    base + [joined, "", "", ""] + tg_cols(tg_no)
+                )
+            continue
+        for ln in listeners:
+            rules = sorted(
+                rules_by_listener.get(str(ln.get("loadBalancerListenerNo")), []),
+                key=lambda r: int(r.get("priority", 0) or 0),
+            )
+            for rule in rules or [{}]:
+                tg_nos = [str(n) for n in _find_all(rule, "targetGroupNo")] or [""]
+                for tg_no in dict.fromkeys(tg_nos):
+                    report.load_balancers.append(
+                        base
+                        + [
+                            listener_text(ln),
+                            rule.get("priority", ""),
+                            _condition_text(rule) if rule else "",
+                            _action_text(rule) if rule else "",
+                        ]
+                        + tg_cols(tg_no)
+                    )
+    report.load_balancers.sort(key=lambda r: (r[3], r[0], r[7], str(r[8])))
+
+
 def gateway_of(cidr: str) -> str:
     """NCP Subnet 게이트웨이 = 대역의 첫 번째 IP (x.x.x.1)."""
     try:
@@ -199,67 +366,7 @@ def build(raw: dict[str, Any]) -> Report:
             ]
         )
 
-    # LB 목록: 1행 = LB × 대상 그룹
-    server_name = {
-        str(s["serverInstanceNo"]): s.get("serverName", "") for s in raw["servers"]
-    }
-    tgs_by_lb: dict[str, list[dict[str, Any]]] = {}
-    for tg in raw.get("target_groups", []):
-        lb_nos = _as_list(
-            _pick(tg, "loadBalancerInstanceNoList", "loadBalancerInstanceNo")
-        )
-        for lb_no in lb_nos:
-            tgs_by_lb.setdefault(str(lb_no), []).append(tg)
-    listeners_by_lb: dict[str, list[str]] = {}
-    for ln in raw.get("listeners", []):
-        proto = _code(_pick(ln, "protocolType", "protocolTypeCode"))
-        listeners_by_lb.setdefault(
-            str(ln.get("loadBalancerInstanceNo", "")), []
-        ).append(f"{proto}:{ln.get('port', '')}")
-    for lb in raw.get("load_balancers", []):
-        lb_no = str(lb["loadBalancerInstanceNo"])
-        sub_nos = _as_list(_pick(lb, "subnetNoList")) or [
-            s.get("subnetNo") for s in _as_list(_pick(lb, "loadBalancerSubnetList"))
-        ]
-        base = [
-            lb.get("loadBalancerName", lb_no),
-            _label(
-                LB_TYPE,
-                _code(_pick(lb, "loadBalancerType", "loadBalancerTypeCode")),
-            ),
-            _label(
-                LB_NETWORK,
-                _code(
-                    _pick(lb, "loadBalancerNetworkType", "loadBalancerNetworkTypeCode")
-                ),
-            ),
-            vpc_name.get(lb.get("vpcNo", ""), lb.get("vpcNo", "")),
-            "\n".join(
-                subnet.get(str(n), {}).get("subnetName", str(n)) for n in sub_nos if n
-            ),
-            "\n".join(str(ip) for ip in _as_list(_pick(lb, "loadBalancerIpList"))),
-            lb.get("loadBalancerDomain", ""),
-            "\n".join(listeners_by_lb.get(lb_no, [])),
-        ]
-        groups = tgs_by_lb.get(lb_no) or [{}]
-        for tg in groups:
-            proto = _code(
-                _pick(tg, "targetGroupProtocolType", "targetGroupProtocolTypeCode")
-            )
-            port = tg.get("targetGroupPort", "")
-            targets = [
-                server_name.get(str(t), str(t))
-                for t in _as_list(_pick(tg, "targetNoList"))
-            ]
-            report.load_balancers.append(
-                base
-                + [
-                    tg.get("targetGroupName", ""),
-                    f"{proto}:{port}" if proto or port else "",
-                    "\n".join(targets),
-                ]
-            )
-    report.load_balancers.sort(key=lambda r: (r[3], r[0], r[8]))
+    build_load_balancers(raw, report, vpc_name, subnet)
 
     report.mapping.sort(key=lambda r: (r[0], r[2], r[5]))
     report.servers.sort(key=lambda r: (r[1], r[0]))

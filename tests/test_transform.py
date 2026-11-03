@@ -53,18 +53,39 @@ def test_subnet_labels_in_korean(demo_raw):
     assert transform._label(transform.SUBNET_USAGE, "NEW") == "NEW"
 
 
-def test_load_balancer_rows(demo_raw):
+def test_load_balancer_rows_follow_listener_rules(demo_raw):
     report = transform.build(demo_raw)
-    lbs = {r[0]: r for r in report.load_balancers}
-    web = lbs["example-web-alb"]
-    assert web[1] == "ALB (Application)"
-    assert web[2] == "공인"
-    assert web[4] == "example-sec-lb-sub"
-    assert web[7] == "HTTPS:443\nHTTP:80"
-    assert web[9] == "HTTPS:443"
-    assert web[10] == "example-access-01\nexample-bastion-01"
-    assert lbs["example-k8s-nlb"][7] == "TCP:443"
-    assert lbs["example-k8s-nlb"][1] == "NLB (Network)"
+    web = [r for r in report.load_balancers if r[0] == "example-web-alb"]
+    assert web[0][1] == "ALB (Application)"
+    assert web[0][2] == "공인"
+    by_rule = {(r[7], r[8]): r for r in web}
+    admin = by_rule[("HTTPS:443", 10)]
+    assert admin[9] == "Path: /admin/*"
+    assert admin[10] == "전달"
+    assert admin[11] == "example-admin-tg"
+    assert admin[12] == "HTTPS:8443"
+    assert admin[13] == "example-bastion-01 (10.200.1.8)"
+    default = by_rule[("HTTPS:443", 10000)]
+    assert default[9] == "기본"
+    assert default[11] == "example-web-tg"
+    assert (
+        default[13] == "example-access-01 (10.200.1.6)\nexample-bastion-01 (10.200.1.8)"
+    )
+    redirect = by_rule[("HTTP:80", 10000)]
+    assert redirect[10] == "리다이렉트 → HTTPS:443"
+    assert redirect[11] == ""
+    nlb = [r for r in report.load_balancers if r[0] == "example-k8s-nlb"][0]
+    assert nlb[1] == "NLB (Network)"
+    assert nlb[11] == "example-k8s-ingress-tg"
+
+
+def test_load_balancer_without_rules_falls_back(demo_raw):
+    demo_raw["lb_rules"] = []
+    report = transform.build(demo_raw)
+    web = [r for r in report.load_balancers if r[0] == "example-web-alb"]
+    assert {r[11] for r in web} == {"example-web-tg", "example-admin-tg"}
+    assert web[0][7] == "HTTPS:443\nHTTP:80"
+    assert web[0][8] == ""
 
 
 def test_load_balancer_flat_codes_and_no_target_group():
@@ -90,4 +111,4 @@ def test_load_balancer_flat_codes_and_no_target_group():
     row = transform.build(raw).load_balancers[0]
     assert row[1] == "NPLB (Network Proxy)"
     assert row[2] == "사설"
-    assert row[7:] == ["", "", "", ""]
+    assert row[7:] == ["", "", "", "", "", "", ""]

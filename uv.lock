@@ -152,8 +152,8 @@ wheels = [
 
 [[package]]
 name = "ncp-api-python"
-version = "0.13.0"
-source = { git = "https://github.com/Neidn/ncp-api-python?rev=v0.13.0#b55f34aeee1747098052223f587b6c0ff3f3ab1f" }
+version = "0.15.0"
+source = { git = "https://github.com/Neidn/ncp-api-python?rev=v0.15.0#ccb6571c2707e6205ab48a2d633247e547cadeaa" }
 dependencies = [
     { name = "httpx" },
 ]
@@ -176,7 +176,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ncp-api-python", git = "https://github.com/Neidn/ncp-api-python?rev=v0.13.0" },
+    { name = "ncp-api-python", git = "https://github.com/Neidn/ncp-api-python?rev=v0.15.0" },
     { name = "openpyxl", specifier = ">=3.1.0" },
 ]
 

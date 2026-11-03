@@ -528,11 +528,7 @@
    },
    "targetGroupPort": 443,
    "vpcNo": "v3",
-   "loadBalancerInstanceNo": "lb1",
-   "targetNoList": [
-    "300",
-    "301"
-   ]
+   "loadBalancerInstanceNo": "lb1"
   },
   {
    "targetGroupNo": "tg2",
@@ -542,10 +538,17 @@
    },
    "targetGroupPort": 30443,
    "vpcNo": "v2",
-   "loadBalancerInstanceNo": "lb2",
-   "targetNoList": [
-    "200"
-   ]
+   "loadBalancerInstanceNo": "lb2"
+  },
+  {
+   "targetGroupNo": "tg3",
+   "targetGroupName": "example-admin-tg",
+   "targetGroupProtocolType": {
+    "code": "HTTPS"
+   },
+   "targetGroupPort": 8443,
+   "vpcNo": "v3",
+   "loadBalancerInstanceNo": "lb1"
   }
  ],
  "listeners": [
@@ -572,6 +575,143 @@
     "code": "TCP"
    },
    "port": 443
+  }
+ ],
+ "lb_rules": [
+  {
+   "loadBalancerListenerNo": "l1",
+   "loadBalancerRuleNo": "r1",
+   "priority": 10000,
+   "loadBalancerRuleConditionList": [
+    {
+     "ruleConditionType": {
+      "code": "DEFAULT"
+     }
+    }
+   ],
+   "loadBalancerRuleActionList": [
+    {
+     "ruleActionType": {
+      "code": "FORWARD"
+     },
+     "targetGroupAction": {
+      "targetGroupList": [
+       {
+        "targetGroupNo": "tg1",
+        "targetGroupWeight": 100
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "loadBalancerListenerNo": "l1",
+   "loadBalancerRuleNo": "r2",
+   "priority": 10,
+   "loadBalancerRuleConditionList": [
+    {
+     "ruleConditionType": {
+      "code": "PATH_PATTERN"
+     },
+     "pathPatternValueList": [
+      "/admin/*"
+     ]
+    }
+   ],
+   "loadBalancerRuleActionList": [
+    {
+     "ruleActionType": {
+      "code": "FORWARD"
+     },
+     "targetGroupAction": {
+      "targetGroupList": [
+       {
+        "targetGroupNo": "tg3",
+        "targetGroupWeight": 100
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "loadBalancerListenerNo": "l2",
+   "loadBalancerRuleNo": "r3",
+   "priority": 10000,
+   "loadBalancerRuleConditionList": [
+    {
+     "ruleConditionType": {
+      "code": "DEFAULT"
+     }
+    }
+   ],
+   "loadBalancerRuleActionList": [
+    {
+     "ruleActionType": {
+      "code": "REDIRECTION"
+     },
+     "redirectionAction": {
+      "protocolType": {
+       "code": "HTTPS"
+      },
+      "port": 443
+     }
+    }
+   ]
+  },
+  {
+   "loadBalancerListenerNo": "l3",
+   "loadBalancerRuleNo": "r4",
+   "priority": 10000,
+   "loadBalancerRuleConditionList": [
+    {
+     "ruleConditionType": {
+      "code": "DEFAULT"
+     }
+    }
+   ],
+   "loadBalancerRuleActionList": [
+    {
+     "ruleActionType": {
+      "code": "FORWARD"
+     },
+     "targetGroupAction": {
+      "targetGroupList": [
+       {
+        "targetGroupNo": "tg2",
+        "targetGroupWeight": 100
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "targets": [
+  {
+   "targetGroupNo": "tg1",
+   "targetNo": "300",
+   "targetName": "example-access-01",
+   "targetIp": "10.200.1.6"
+  },
+  {
+   "targetGroupNo": "tg1",
+   "targetNo": "301",
+   "targetName": "example-bastion-01",
+   "targetIp": "10.200.1.8"
+  },
+  {
+   "targetGroupNo": "tg3",
+   "targetNo": "301",
+   "targetName": "example-bastion-01",
+   "targetIp": "10.200.1.8"
+  },
+  {
+   "targetGroupNo": "tg2",
+   "targetNo": "200",
+   "targetName": "example-k8s-worker-01",
+   "targetIp": "10.3.10.10"
   }
  ]
 }
