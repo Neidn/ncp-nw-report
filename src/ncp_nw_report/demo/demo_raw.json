@@ -547,5 +547,31 @@
     "200"
    ]
   }
+ ],
+ "listeners": [
+  {
+   "loadBalancerInstanceNo": "lb1",
+   "loadBalancerListenerNo": "l1",
+   "protocolType": {
+    "code": "HTTPS"
+   },
+   "port": 443
+  },
+  {
+   "loadBalancerInstanceNo": "lb1",
+   "loadBalancerListenerNo": "l2",
+   "protocolType": {
+    "code": "HTTP"
+   },
+   "port": 80
+  },
+  {
+   "loadBalancerInstanceNo": "lb2",
+   "loadBalancerListenerNo": "l3",
+   "protocolType": {
+    "code": "TCP"
+   },
+   "port": 443
+  }
  ]
 }

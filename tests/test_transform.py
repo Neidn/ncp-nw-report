@@ -60,8 +60,10 @@ def test_load_balancer_rows(demo_raw):
     assert web[1] == "ALB (Application)"
     assert web[2] == "공인"
     assert web[4] == "example-sec-lb-sub"
-    assert web[8] == "HTTPS:443"
-    assert web[9] == "example-access-01\nexample-bastion-01"
+    assert web[7] == "HTTPS:443\nHTTP:80"
+    assert web[9] == "HTTPS:443"
+    assert web[10] == "example-access-01\nexample-bastion-01"
+    assert lbs["example-k8s-nlb"][7] == "TCP:443"
     assert lbs["example-k8s-nlb"][1] == "NLB (Network)"
 
 
@@ -88,4 +90,4 @@ def test_load_balancer_flat_codes_and_no_target_group():
     row = transform.build(raw).load_balancers[0]
     assert row[1] == "NPLB (Network Proxy)"
     assert row[2] == "사설"
-    assert row[7:] == ["", "", ""]
+    assert row[7:] == ["", "", "", ""]

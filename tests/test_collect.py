@@ -80,6 +80,11 @@ class FakeLb:
     def get_target_group_list(self, **_: Any) -> dict[str, Any]:
         return {"totalRows": 1, "targetGroupList": [{"targetGroupNo": "tg1"}]}
 
+    def get_load_balancer_listener_list(
+        self, *, load_balancer_instance_no: str, region_code: str | None = None
+    ) -> dict[str, Any]:
+        return {"loadBalancerListenerList": [{"port": 443}]}
+
 
 class DeniedLb:
     def get_load_balancer_instance_list(self, **_: Any) -> dict[str, Any]:
@@ -120,6 +125,7 @@ def test_collect_load_balancers():
     raw = Collector(FakeClient()).collect()
     assert raw["load_balancers"][0]["loadBalancerInstanceNo"] == "lb1"
     assert raw["target_groups"][0]["targetGroupNo"] == "tg1"
+    assert raw["listeners"] == [{"port": 443, "loadBalancerInstanceNo": "lb1"}]
 
 
 def test_load_balancer_permission_error_is_skipped(capsys):

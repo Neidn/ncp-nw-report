@@ -1,6 +1,6 @@
 """NCP API에서 원본 데이터 수집 (조회 API만 사용).
 
-ncp-api-python(NcpClient, v0.12.0 이상)을 사용한다.
+ncp-api-python(NcpClient, v0.13.0 이상)을 사용한다.
 """
 
 from __future__ import annotations
@@ -128,6 +128,7 @@ class Collector:
         # Load Balancer / Target Group. 권한이 없으면 경고 후 빈 목록.
         lbs: list[dict[str, Any]] = []
         tgs: list[dict[str, Any]] = []
+        listeners: list[dict[str, Any]] = []
         lb_api = getattr(self.client, "load_balancer", None)
         if lb_api is not None:
             try:
@@ -139,6 +140,17 @@ class Collector:
                 tgs = self._list(
                     lb_api.get_target_group_list, "targetGroupList", "targetGroupNo"
                 )
+                for lb in lbs:
+                    res = self._call(
+                        lb_api.get_load_balancer_listener_list,
+                        load_balancer_instance_no=lb["loadBalancerInstanceNo"],
+                        region_code=self.region_code,
+                    )
+                    for ln in res.get("loadBalancerListenerList", []):
+                        ln.setdefault(
+                            "loadBalancerInstanceNo", lb["loadBalancerInstanceNo"]
+                        )
+                        listeners.append(ln)
             except Exception as exc:  # noqa: BLE001
                 print(
                     f"[경고] Load Balancer 조회 실패, LB 목록 생략: {exc}",
@@ -157,6 +169,7 @@ class Collector:
             "deny_allow_groups": dag,
             "load_balancers": lbs,
             "target_groups": tgs,
+            "listeners": listeners,
         }
 
 

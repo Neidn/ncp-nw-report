@@ -210,6 +210,12 @@ def build(raw: dict[str, Any]) -> Report:
         )
         for lb_no in lb_nos:
             tgs_by_lb.setdefault(str(lb_no), []).append(tg)
+    listeners_by_lb: dict[str, list[str]] = {}
+    for ln in raw.get("listeners", []):
+        proto = _code(_pick(ln, "protocolType", "protocolTypeCode"))
+        listeners_by_lb.setdefault(
+            str(ln.get("loadBalancerInstanceNo", "")), []
+        ).append(f"{proto}:{ln.get('port', '')}")
     for lb in raw.get("load_balancers", []):
         lb_no = str(lb["loadBalancerInstanceNo"])
         sub_nos = _as_list(_pick(lb, "subnetNoList")) or [
@@ -233,6 +239,7 @@ def build(raw: dict[str, Any]) -> Report:
             ),
             "\n".join(str(ip) for ip in _as_list(_pick(lb, "loadBalancerIpList"))),
             lb.get("loadBalancerDomain", ""),
+            "\n".join(listeners_by_lb.get(lb_no, [])),
         ]
         groups = tgs_by_lb.get(lb_no) or [{}]
         for tg in groups:
@@ -252,7 +259,7 @@ def build(raw: dict[str, Any]) -> Report:
                     "\n".join(targets),
                 ]
             )
-    report.load_balancers.sort(key=lambda r: (r[3], r[0], r[7]))
+    report.load_balancers.sort(key=lambda r: (r[3], r[0], r[8]))
 
     report.mapping.sort(key=lambda r: (r[0], r[2], r[5]))
     report.servers.sort(key=lambda r: (r[1], r[0]))
